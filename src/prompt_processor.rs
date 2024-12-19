@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use tokenizers::Tokenizer;
+use serde::{Serialize, Deserialize};
 
 use crate::utils::number_to_words::number_to_words;
 
@@ -134,13 +135,14 @@ impl PromptProcessor {
     }
 }
 
-// These structs are needed for the Speaker type used in the original JS code
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Speaker {
     pub language: String,
     pub text: String,
     pub words: Vec<Word>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Word {
     pub word: String,
     pub duration: f64,

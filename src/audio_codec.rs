@@ -18,7 +18,7 @@ impl AudioCodec {
 
     pub async fn decode(&self, codes: &[i64]) -> Tensor {
         // Create tensor with shape [1, codes.length]
-        let codes_tensor: Tensor = Tensor::of_slice(codes)
+        let codes_tensor: Tensor = Tensor::from_slice(codes)
             .view([1, codes.len() as i64]);
 
         // Pass tensor through wavtokenizer function
