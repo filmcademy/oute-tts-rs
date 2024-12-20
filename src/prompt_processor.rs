@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 use tokenizers::Tokenizer;
 use serde::{Serialize, Deserialize};
+use std::path::Path;
+use anyhow::Result;
 
 use crate::utils::number_to_words::number_to_words;
+use crate::types::Speaker;
 
 pub struct PromptProcessor {
-    tokenizer: Tokenizer,
+    pub tokenizer: Tokenizer,
     bos: String,
     eos: String,
     special_tokens: HashMap<String, String>,
@@ -15,7 +18,21 @@ pub struct PromptProcessor {
 }
 
 impl PromptProcessor {
-    pub fn new(tokenizer: Tokenizer, languages: Vec<String>) -> Self {
+    fn ensure_tokenizer_file() -> Result<String> {
+        let models_dir = "models";
+        let tokenizer_path = format!("{}/tokenizer.json", models_dir);
+
+        if !Path::new(&tokenizer_path).exists() {
+            eprintln!("Error: Tokenizer file not found. Please ensure the project was built correctly.");
+        }
+
+        Ok(tokenizer_path)
+    }
+
+    pub fn new() -> Result<Self> {
+        let tokenizer_path = Self::ensure_tokenizer_file()?;
+        let tokenizer = Tokenizer::from_file(&tokenizer_path).map_err(|e| anyhow::anyhow!("{}", e))?;
+        
         let mut processor = PromptProcessor {
             tokenizer,
             bos: "<|im_start|>".to_string(),
@@ -23,7 +40,7 @@ impl PromptProcessor {
             special_tokens: HashMap::new(),
             text_prompt: "{bos}\n{text_start}{words}{text_end}\n{audio_start}\n".to_string(),
             map_audio_tokens: HashMap::new(),
-            languages,
+            languages: ["en", "ja", "ko", "zh"].iter().map(|&s| s.to_string()).collect(),
         };
 
         processor.special_tokens.insert("audio_code".to_string(), "<|{}|>".to_string());
@@ -37,7 +54,7 @@ impl PromptProcessor {
         processor.special_tokens.insert("text_sep".to_string(), "<|text_sep|>".to_string());
 
         processor.map_audio_tokens = processor.get_audio_token_map();
-        processor
+        Ok(processor)
     }
 
     fn get_audio_token_map(&self) -> HashMap<i64, i64> {
@@ -133,13 +150,12 @@ impl PromptProcessor {
         }
         result
     }
-}
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Speaker {
-    pub language: String,
-    pub text: String,
-    pub words: Vec<Word>,
+    pub fn encode_prompt(&self, prompt: &str) -> Result<Vec<i64>> {
+        let encoding = self.tokenizer.encode(prompt, false)
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
+        Ok(encoding.get_ids().iter().map(|&id| id as i64).collect())
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

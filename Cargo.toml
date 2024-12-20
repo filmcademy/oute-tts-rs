@@ -14,3 +14,9 @@ llama-cpp-2 = { version = "0.1.85", features = ["native"] }
 anyhow = "1.0.94"
 clap = { version = "4.4", features = ["derive"] }
 tokio = { version = "1.0", features = ["full"] }
+hound = "3.5.1"
+ort = "1.16.3"
+ndarray = { version = "0.15", features = ["serde"] }
+
+[build-dependencies]
+reqwest = { version = "0.12.9", features = ["blocking"] }
