@@ -3,7 +3,7 @@ use llama_cpp_2::context::params::LlamaContextParams;
 use llama_cpp_2::llama_backend::LlamaBackend;
 use llama_cpp_2::model::params::LlamaModelParams;
 use llama_cpp_2::model::LlamaModel;
-use llama_cpp_2::sampling::{LlamaSampler, params::LlamaSamplerChainParams};
+use llama_cpp_2::sampling::LlamaSampler;
 use llama_cpp_2::token::LlamaToken;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroU32;
@@ -16,6 +16,8 @@ static INIT: Once = Once::new();
 lazy_static! {
     static ref BACKEND: Arc<Mutex<Option<Arc<LlamaBackend>>>> = Arc::new(Mutex::new(None));
 }
+
+const DEFAULT_MODEL_PATH: &str = "models/OuteTTS-0.2-500M-FP16.gguf";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GenerationConfig {
@@ -41,6 +43,10 @@ pub struct GGUFModel {
 }
 
 impl GGUFModel {
+    pub fn default() -> Result<Self> {
+        Self::new(DEFAULT_MODEL_PATH, 1, 4096)
+    }
+
     pub fn new(
         model_path: impl AsRef<Path>,
         n_gpu_layers: u32,
@@ -87,19 +93,20 @@ impl GGUFModel {
         let mut tokens = Vec::new();
         let context = self.context.lock().unwrap();
         
-        let sampler = LlamaSampler::new(LlamaSamplerChainParams::default())?
-            .add_temp(config.temperature)
-            .add_penalties(
-                self.model.n_vocab() as i32,
-                0,
-                0,
-                0,
+        let sampler = LlamaSampler::chain_simple(vec![
+            LlamaSampler::temp(config.temperature),
+            LlamaSampler::penalties(
+                self.model.n_vocab(),
+                self.model.token_eos().0,
+                self.model.token_nl().0,
+                0,  // penalty_last_n
                 config.repetition_penalty,
-                1.0,
-                1.0,
-                false,
-                false
-            );
+                0.0,  // penalty_freq
+                0.0,  // penalty_present
+                false,  // penalize_nl
+                true,  // ignore_eos
+            )
+        ]);
 
         tokens.extend_from_slice(input_tokens);
 
